@@ -1,0 +1,228 @@
+# Global configuration
+global:
+  storageClass: "gp2"  # Change to your preferred storage class
+  
+# Prometheus configuration
+prometheus:
+  enabled: true
+  server:
+    replicaCount: 1
+    retention: "15d"
+    persistentVolume:
+      enabled: true
+      size: 50Gi
+      storageClass: ""  # Uses global.storageClass if empty
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    service:
+      type: ClusterIP
+      port: 9090
+    
+  # Node Exporter for host metrics
+  nodeExporter:
+    enabled: true
+    
+  # Kube State Metrics for Kubernetes object metrics
+  kubeStateMetrics:
+    enabled: true
+    
+  # Pushgateway for batch job metrics
+  pushgateway:
+    enabled: true
+    
+  # Alert rules
+  serverFiles:
+    alerting_rules.yml:
+      groups:
+      - name: kubernetes-alerts
+        rules:
+        - alert: KubernetesPodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total[5m]) * 60 * 5 > 0
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: Kubernetes pod crash looping (instance {{ $labels.instance }})
+            description: "Pod {{ $labels.pod }} is crash looping\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+            
+        - alert: KubernetesNodeReady
+          expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Kubernetes Node ready (instance {{ $labels.instance }})
+            description: "Node {{ $labels.node }} has been unready for a long time\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+            
+        - alert: KubernetesMemoryPressure
+          expr: kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Kubernetes memory pressure (instance {{ $labels.instance }})
+            description: "{{ $labels.node }} has MemoryPressure condition\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+# Grafana configuration
+grafana:
+  enabled: true
+  replicas: 1
+  
+  # Admin credentials (change these!)
+  adminUser: admin
+  adminPassword: "admin123"  # Change this in production!
+  
+  # Persistence
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: ""  # Uses global.storageClass if empty
+    
+  # Resources
+  resources:
+    requests:
+      cpu: 250m
+      memory: 750Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+      
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    
+  # Grafana configuration
+  grafana.ini:
+    server:
+      domain: localhost
+      root_url: "%(protocol)s://%(domain)s:%(http_port)s/"
+    security:
+      admin_user: admin
+      admin_password: admin123
+    auth.anonymous:
+      enabled: false
+    auth.basic:
+      enabled: true
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+      
+  # Data sources
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://monitoring-stack-prometheus-server:9090
+        access: proxy
+        isDefault: true
+        
+  # Pre-configured dashboards
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+          
+  dashboards:
+    default:
+      kubernetes-cluster-monitoring:
+        gnetId: 7249
+        revision: 1
+        datasource: Prometheus
+      kubernetes-pod-monitoring:
+        gnetId: 6417
+        revision: 1
+        datasource: Prometheus
+      node-exporter-full:
+        gnetId: 1860
+        revision: 29
+        datasource: Prometheus
+
+# AlertManager configuration
+alertmanager:
+  enabled: true
+  replicaCount: 1
+  
+  # Persistence
+  persistentVolume:
+    enabled: true
+    size: 2Gi
+    storageClass: ""  # Uses global.storageClass if empty
+    
+  # Resources
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+      
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 9093
+    
+  # AlertManager configuration
+  config:
+    global:
+      smtp_smarthost: 'localhost:587'
+      smtp_from: 'alertmanager@yourdomain.com'
+      
+    route:
+      group_by: ['alertname']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'web.hook'
+      
+    receivers:
+    - name: 'web.hook'
+      email_configs:
+      - to: 'admin@yourdomain.com'
+        subject: 'Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          {{ end }}
+          
+    # Uncomment and configure for Slack notifications
+    # - name: 'slack-notifications'
+    #   slack_configs:
+    #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+    #     channel: '#alerts'
+    #     title: 'Alert: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+# Network Policies (optional, for enhanced security)
+networkPolicies:
+  enabled: false
+  
+# Service Monitor for custom applications
+serviceMonitor:
+  enabled: true
+  
+# RBAC configuration
+rbac:
+  create: true
+  
+# Service Account
+serviceAccount:
+  create: true
+  name: ""
