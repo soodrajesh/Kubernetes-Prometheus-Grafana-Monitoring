@@ -1,5 +1,7 @@
 # Kubernetes Monitoring Stack: Prometheus, Grafana, Alertmanager
 
+[![Helm Chart CI](https://github.com/soodrajesh/Kubernetes-Prometheus-Grafana-Monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/soodrajesh/Kubernetes-Prometheus-Grafana-Monitoring/actions/workflows/ci.yml)
+
 A Helm chart that deploys Prometheus, Grafana, and Alertmanager onto a Kubernetes cluster, plus the RBAC, network policies, and service monitors needed to run them. I built this so I'd stop hand-rolling `kubectl apply` sequences every time I needed a monitoring stack on a cluster - it wraps the upstream community charts instead of reinventing scrape configs and dashboards.
 
 ## What this deploys
@@ -105,7 +107,7 @@ Dumps Grafana's dashboard export and `/var/lib/grafana` data, a Prometheus data 
 - **Grafana admin password is hardcoded in `values.yaml`** (`admin123`, in plaintext, set twice - once under `grafana.adminPassword` and again under `grafana.ini` `security.admin_password`). It isn't pulled from a Kubernetes Secret. `SECURITY.md` tells you to change it; nothing in the chart enforces that.
 - **`NetworkPolicy` resources exist but are disabled by default** (`networkPolicies.enabled: false`). They're written and templated but never applied unless you flip that flag.
 - **Alertmanager's SMTP config is a placeholder** (`localhost:587`, `alertmanager@yourdomain.com`), and the Slack receiver block in `values.yaml` is commented out. Email is the only notification path, and it needs a real SMTP host before it'll deliver anything.
-- **No CI.** There's no GitHub Actions or GitLab CI in this repo - `helm lint`/`helm template` and any install verification are manual steps you run yourself.
+- **CI validates rendering, not a live deploy.** The `Helm Chart CI` GitHub Actions workflow (`.github/workflows/ci.yml`) runs `helm dependency update`, `helm lint`, and `helm template` (default values, plus `networkPolicies.enabled=true`) against `helm/monitoring-stack` on every push/PR touching `helm/**`. That catches dependency-resolution failures, lint errors, and templating errors before merge - it does not spin up a cluster, install the chart, or verify the pods actually come up healthy. Install verification against a real cluster is still a manual step.
 - **Chart dependencies aren't vendored.** `helm dependency update` has to reach `prometheus-community.github.io` and `grafana.github.io` at install/build time; there's no `Chart.lock` or `charts/*.tgz` committed, so a pin-and-vendor step would be needed for air-gapped or fully reproducible installs.
 - **Single replica everywhere** (`prometheus.server.replicaCount: 1`, `grafana.replicas: 1`, `alertmanager.replicaCount: 1`). No HA, no pod disruption budgets. Fine for a single small cluster, not for anything that needs to survive a node drain without a monitoring gap.
 - **`scripts/backup.sh` calls `grafana-cli admin export-dashboard`**, which isn't a real `grafana-cli` subcommand in current Grafana versions. It's wrapped in `|| true` so it fails silently rather than blocking the rest of the backup - worth replacing with an actual dashboard export via the Grafana HTTP API if this backup script is going to be relied on.
