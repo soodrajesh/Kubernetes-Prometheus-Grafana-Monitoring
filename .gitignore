@@ -1,0 +1,3 @@
+# Helm dependency build artifacts (fetched by `helm dependency update`)
+helm/**/charts/*.tgz
+helm/**/Chart.lock

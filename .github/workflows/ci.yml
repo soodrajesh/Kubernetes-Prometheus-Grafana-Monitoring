@@ -1,0 +1,43 @@
+name: Helm Chart CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "helm/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "helm/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+jobs:
+  lint-and-template:
+    name: Lint and render chart
+    runs-on: ubuntu-latest
+    env:
+      CHART_PATH: helm/monitoring-stack
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.3
+
+      - name: helm dependency update
+        run: helm dependency update "$CHART_PATH"
+
+      - name: helm lint
+        run: helm lint "$CHART_PATH"
+
+      - name: helm template (default values)
+        run: helm template monitoring-stack "$CHART_PATH" > /tmp/rendered-default.yaml
+
+      - name: helm template (network policies enabled)
+        run: |
+          helm template monitoring-stack "$CHART_PATH" \
+            --set networkPolicies.enabled=true > /tmp/rendered-netpol.yaml
