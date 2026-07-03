@@ -19,9 +19,9 @@ keywords:
   - kubernetes
   - observability
 
-home: https://github.com/soodrajesh/k8s-grafana-prometheus
+home: https://github.com/soodrajesh/Kubernetes-Prometheus-Grafana-Monitoring
 sources:
-  - https://github.com/soodrajesh/k8s-grafana-prometheus
+  - https://github.com/soodrajesh/Kubernetes-Prometheus-Grafana-Monitoring
 
 dependencies:
   - name: prometheus
